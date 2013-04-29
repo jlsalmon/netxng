@@ -17,7 +17,8 @@ TNetXNGFile::TNetXNGFile( const char  *url,
                           Option_t    */*option*/,
                           const char  *title,
                           Int_t        compress,
-                          Int_t        /*netopt*/ ):
+                          Int_t        /*netopt*/,
+                          Bool_t       /*parallelopen*/):
   TFile( url, "NET", title, compress )
 {
   using namespace XrdCl;

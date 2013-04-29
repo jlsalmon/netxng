@@ -31,10 +31,11 @@ class TNetXNGFile: public TFile
     // Constructor
     //--------------------------------------------------------------------------
     TNetXNGFile( const char  *url,
-                 Option_t    *option   = "",
-                 const char  *title    = "",
-                 Int_t        compress = 1,
-                 Int_t        netopt   = 0 );
+                 Option_t    *option       = "",
+                 const char  *title        = "",
+                 Int_t        compress     = 1,
+                 Int_t        netopt       = 0,
+                 Bool_t       parallelopen = kFALSE );
 
     //--------------------------------------------------------------------------
     // Desctructor
