@@ -1,5 +1,5 @@
 void P040_TXNetSystem()
 {
-   gPluginMgr->AddHandler("TSystem", "^root:", "TXNetSystem",
-      "Netx", "TXNetSystem(const char *,Bool_t)");
+   gPluginMgr->AddHandler("TSystem", "^root:", "TNetXNGSystem",
+      "NetXNG", "TNetXNGSystem(const char *,Bool_t)");
 }
