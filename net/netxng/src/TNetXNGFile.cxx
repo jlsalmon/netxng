@@ -6,6 +6,7 @@
 #include "TNetXNGFile.h"
 #include <XrdCl/XrdClURL.hh>
 #include <XrdCl/XrdClFile.hh>
+#include <XrdCl/XrdClXRootDResponses.hh>
 #include <iostream>
 
 ClassImp(TNetXNGFile);
@@ -14,19 +15,23 @@ ClassImp(TNetXNGFile);
 //! Constructor
 //------------------------------------------------------------------------------
 TNetXNGFile::TNetXNGFile( const char  *url,
-                          Option_t    */*mode*/,
+                          Option_t    *mode,
                           const char  *title,
                           Int_t        compress,
                           Int_t        /*netopt*/,
-                          Bool_t       /*parallelopen*/):
+                          Bool_t       /*parallelopen*/ ):
   TFile( url, "NET", title, compress )
 {
   using namespace XrdCl;
-  std::cout << "Creating TNetXNGFile" << std::endl;
-  fFile = new XrdCl::File();
-  XrdCl::URL fileUrl( url );
-  fileUrl.SetProtocol( "root" );
-  fFile->Open( fileUrl.GetURL().c_str(), OpenFlags::Read );
+  Info( "TNetXNGFile", "Creating TNetXNGFile" );
+
+  fFile = new File();
+  fUrl  = new URL( std::string( url ) );
+  fUrl->SetProtocol( std::string( "root" ) );
+
+  fMode = ParseOpenMode( mode );
+
+  fFile->Open( fUrl->GetURL(), fMode );
   TFile::Init( false );
 }
 
@@ -38,6 +43,21 @@ TNetXNGFile::~TNetXNGFile()
   if( IsOpen() )
     Close();
   delete fFile;
+  delete fUrl;
+}
+
+XrdCl::OpenFlags::Flags TNetXNGFile::ParseOpenMode( Option_t *modestr )
+{
+  using namespace XrdCl;
+  OpenFlags::Flags mode = OpenFlags::None;
+  std::string mod = std::string( modestr );
+
+  if( mod == "NEW" || mod == "CREATE" ) mode = OpenFlags::New;
+  else if ( mod == "RECREATE" )         mode = OpenFlags::Delete;
+  else if ( mod == "UPDATE" )           mode = OpenFlags::Update;
+  else if ( mod == "READ" )             mode = OpenFlags::Read;
+
+  return mode;
 }
 
 //------------------------------------------------------------------------------
@@ -46,7 +66,8 @@ TNetXNGFile::~TNetXNGFile()
 Long64_t TNetXNGFile::GetSize() const
 {
   using namespace XrdCl;
-  XrdCl::StatInfo *info = 0;
+  StatInfo *info = 0;
+
   fFile->Stat( false, info );
   Long64_t size = info->GetSize();
   delete info;
@@ -64,7 +85,7 @@ Bool_t TNetXNGFile::IsOpen() const
 //------------------------------------------------------------------------------
 //! Close the file
 //------------------------------------------------------------------------------
-void TNetXNGFile::Close( const Option_t */*option*/)
+void TNetXNGFile::Close( const Option_t */*option*/ )
 {
   fFile->Close();
 }
@@ -72,9 +93,33 @@ void TNetXNGFile::Close( const Option_t */*option*/)
 //------------------------------------------------------------------------------
 //! Reopen the file with the new access mode
 //------------------------------------------------------------------------------
-Int_t TNetXNGFile::ReOpen(Option_t */*mode*/)
+Int_t TNetXNGFile::ReOpen( Option_t *modestr )
 {
-  return 0;
+  using namespace XrdCl;
+  OpenFlags::Flags mode = ParseOpenMode( modestr );
+
+  //----------------------------------------------------------------------------
+  // Only Read and Update are valid modes
+  //----------------------------------------------------------------------------
+  if( mode != OpenFlags::Read && mode != OpenFlags::Update )
+  {
+    Error("ReOpen", "mode must be either READ or UPDATE, not %s", modestr);
+    return 1;
+  }
+
+  //----------------------------------------------------------------------------
+  // The mode is not really changing
+  //----------------------------------------------------------------------------
+  if( mode == fMode
+      || ( mode == OpenFlags::Update && fMode == OpenFlags::New ) )
+  {
+    return 1;
+  }
+
+  fFile->Close();
+  fMode = mode;
+
+  XRootDStatus st = fFile->Open( fUrl->GetURL(), fMode );
 }
 
 //------------------------------------------------------------------------------
@@ -84,11 +129,11 @@ Bool_t TNetXNGFile::ReadBuffer( char *buffer, Int_t length )
 {
   using namespace XrdCl;
   uint32_t bytesRead = 0;
-  std::cout << "rb 1 o " << fOffset << " l " << length << std::endl;
+  Info( "ReadBuffer", "offset: %lld length: %d", fOffset, length );
   XRootDStatus st = fFile->Read( fOffset, length, buffer, bytesRead );
-  std::cout << "[x]" << st.ToStr() << " " << bytesRead << std::endl;
+  Info( "ReadBuffer", "%s bytes read: %d", st.ToStr().c_str(), bytesRead );
   fOffset += bytesRead;
-  return false;
+  return st.IsError();
 }
 
 //------------------------------------------------------------------------------
@@ -97,10 +142,11 @@ Bool_t TNetXNGFile::ReadBuffer( char *buffer, Int_t length )
 Bool_t TNetXNGFile::ReadBuffer( char *buffer, Long64_t position, Int_t length )
 {
   using namespace XrdCl;
-  std::cout << "rb 2" << std::endl;
+  Info( "ReadBuffer", "offset: %lld length: %d", position, length );
   uint32_t bytesRead = 0;
   XRootDStatus st = fFile->Read( position, length, buffer, bytesRead );
-  return true;
+  Info( "ReadBuffer", "%s bytes read: %d", st.ToStr().c_str(), bytesRead );
+  return st.IsError();
 }
 
 //------------------------------------------------------------------------------
@@ -111,14 +157,27 @@ Bool_t TNetXNGFile::ReadBuffers( char     *buffer,
                                  Int_t    *length,
                                  Int_t     nbuffs )
 {
-  std::cout << "rb3 " << std::endl;
+  using namespace XrdCl;
+  Info( "ReadBuffers", "nbuffs: %d", nbuffs );
+  ChunkList chunks;
+
+  for( int i = 0; i < nbuffs; ++i )
+  {
+    chunks.push_back( ChunkInfo( position[i], length[i] ) );
+  }
+
+  VectorReadInfo *vi;
+  XRootDStatus st = fFile->VectorRead( chunks, (void *) buffer, vi );
+  Info( "ReadBuffer", "%s", st.ToStr().c_str() );
+
+  delete vi;
   return true;
 }
 
 //------------------------------------------------------------------------------
 //! Write a data chunk
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFile::WriteBuffer(const char *buffer, Int_t length)
+Bool_t TNetXNGFile::WriteBuffer( const char */*buffer*/, Int_t /*length*/ )
 {
   return false;
 }
