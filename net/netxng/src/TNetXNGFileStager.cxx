@@ -3,15 +3,8 @@
 // Author: Lukasz Janyst <ljanyst@cern.ch>
 //------------------------------------------------------------------------------
 
-//#include "TError.h"
-//#include "TObjString.h"
-//#include "TUrl.h"
 #include "TNetXNGFileStager.h"
-//#include "TXNetSystem.h"
-//#include "TFileCollection.h"
-//#include "TStopwatch.h"
-//#include "TFileInfo.h"
-#include <iostream>
+#include "TNetXNGSystem.h"
 
 ClassImp( TNetXNGFileStager );
 
@@ -19,9 +12,10 @@ ClassImp( TNetXNGFileStager );
 //! Constructor
 //------------------------------------------------------------------------------
 TNetXNGFileStager::TNetXNGFileStager( const char *url ):
-  TFileStager( "xrd" ), fSystem( url )
+  TFileStager( "xrd" )
 {
-  std::cout << "Creating TNetXNGFileStager" << std::endl;
+  Info( "TNetXNGFileStager", "Creating TNetXNGFileStager" );
+  fSystem = new TNetXNGSystem( url );
 }
 
 //------------------------------------------------------------------------------
@@ -29,14 +23,30 @@ TNetXNGFileStager::TNetXNGFileStager( const char *url ):
 //------------------------------------------------------------------------------
 TNetXNGFileStager::~TNetXNGFileStager()
 {
+  delete fSystem;
 }
 
 //------------------------------------------------------------------------------
 //! Check if a file is ready to be used
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFileStager::IsStaged( const char */*path*/ )
+Bool_t TNetXNGFileStager::IsStaged( const char *path )
 {
-  return kFALSE;
+  FileStat_t st;
+  if( fSystem->GetPathInfo( path, st ) != 0 )
+  {
+    if ( gDebug > 0 )
+      Info( "IsStaged", "path %s cannot be stat'ed", path );
+    return kFALSE;
+  }
+
+  if ( R_ISOFF( st.fMode ) )
+  {
+    if ( gDebug > 0 )
+      Info( "IsStaged", "path '%s' is offline", path );
+    return kFALSE;
+  }
+
+  return kTRUE;
 }
 
 //------------------------------------------------------------------------------
