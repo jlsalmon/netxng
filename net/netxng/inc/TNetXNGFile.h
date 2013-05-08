@@ -8,6 +8,10 @@
 
 #include "TFile.h"
 
+#ifndef __CINT__
+#include <XrdCl/XrdClFileSystem.hh>
+#endif
+
 //------------------------------------------------------------------------------
 // Forward declarations
 //------------------------------------------------------------------------------
@@ -65,7 +69,7 @@ class TNetXNGFile: public TFile
     //! @param option if == "R", all TProcessIDs referenced by this file are
     //!               deleted (is this valid in xrootd context?)
     //--------------------------------------------------------------------------
-    virtual void Close(const Option_t *option = "");
+    virtual void Close( const Option_t *option = "" );
 
     //--------------------------------------------------------------------------
     //! Reopen the file with the new access mode
@@ -76,7 +80,7 @@ class TNetXNGFile: public TFile
     //!             input arguments) and -1 in case of failure, in which case
     //!             the file cannot be used anymore
     //--------------------------------------------------------------------------
-    virtual Int_t ReOpen(Option_t *mode);
+    virtual Int_t ReOpen( Option_t *modestr );
 
     //--------------------------------------------------------------------------
     //! Read a data chunk of the given size
@@ -109,10 +113,10 @@ class TNetXNGFile: public TFile
     //! @param nbuffs   number of chunks
     //! @returns        kTRUE in case of failure
     //--------------------------------------------------------------------------
-    virtual Bool_t ReadBuffers(char     *buffer,
-                               Long64_t *position,
-                               Int_t    *length,
-                               Int_t     nbuffs);
+    virtual Bool_t ReadBuffers( char     *buffer,
+                                Long64_t *position,
+                                Int_t    *length,
+                                Int_t     nbuffs );
 
     //--------------------------------------------------------------------------
     //! Write a data chunk
@@ -121,7 +125,7 @@ class TNetXNGFile: public TFile
     //! @param length the size of the buffer
     //! @returns      kTRUE in case of failure
     //--------------------------------------------------------------------------
-    virtual Bool_t WriteBuffer(const char *buffer, Int_t length);
+    virtual Bool_t WriteBuffer( const char *buffer, Int_t length );
 
     //--------------------------------------------------------------------------
     //! Set the position within the file
@@ -129,7 +133,18 @@ class TNetXNGFile: public TFile
     //! @param offset   the new offset relative to position
     //! @param position the relative position, either kBeg, kCur or kEnd
     //--------------------------------------------------------------------------
-    virtual void Seek(Long64_t offset, ERelativeTo position = kBeg);
+    virtual void Seek( Long64_t offset, ERelativeTo position = kBeg );
+
+    //--------------------------------------------------------------------------
+    //! Parse an file open mode given as a string into an integer that the
+    //! client can use
+    //!
+    //! @param option the file open mode as a string
+    //! @returns      correctly parsed option mode
+    //--------------------------------------------------------------------------
+#ifndef __CINT__
+    XrdCl::OpenFlags::Flags ParseOpenMode( Option_t *modestr );
+#endif
 
     //--------------------------------------------------------------------------
     //! ROOT class definition
@@ -140,13 +155,17 @@ class TNetXNGFile: public TFile
     //--------------------------------------------------------------------------
     //! Data members
     //--------------------------------------------------------------------------
-    XrdCl::File *fFile;
+#ifndef __CINT__
+    XrdCl::File            *fFile;
+    XrdCl::URL             *fUrl;
+    XrdCl::OpenFlags::Flags fMode;
+#endif
 
     //--------------------------------------------------------------------------
     //! The file is not copyable
     //--------------------------------------------------------------------------
     TNetXNGFile( const TNetXNGFile &other );
-    TNetXNGFile &operator = (const TNetXNGFile &other );
+    TNetXNGFile &operator = ( const TNetXNGFile &other );
 };
 
 #endif // ROOT_TNetXNGFile
