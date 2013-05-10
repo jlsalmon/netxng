@@ -48,9 +48,10 @@ TNetXNGFile::~TNetXNGFile()
 
 XrdCl::OpenFlags::Flags TNetXNGFile::ParseOpenMode( Option_t *modestr )
 {
+  Info( "TNetXNGFile", "ParseOpenMode" );
   using namespace XrdCl;
   OpenFlags::Flags mode = OpenFlags::None;
-  std::string mod = std::string( modestr );
+  TString mod = ToUpper( TString( modestr ) );
 
   if( mod == "NEW" || mod == "CREATE" ) mode = OpenFlags::New;
   else if ( mod == "RECREATE" )         mode = OpenFlags::Delete;
@@ -95,6 +96,7 @@ void TNetXNGFile::Close( const Option_t */*option*/ )
 //------------------------------------------------------------------------------
 Int_t TNetXNGFile::ReOpen( Option_t *modestr )
 {
+  Info( "TNetXNGFile", "ReOpen" );
   using namespace XrdCl;
   OpenFlags::Flags mode = ParseOpenMode( modestr );
 
@@ -120,6 +122,13 @@ Int_t TNetXNGFile::ReOpen( Option_t *modestr )
   fMode = mode;
 
   XRootDStatus st = fFile->Open( fUrl->GetURL(), fMode );
+  if( !st.IsOK() )
+  {
+    Error( "ReOpen", "%s", st.GetErrorMessage().c_str() );
+    return 1;
+  }
+
+  return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -177,9 +186,43 @@ Bool_t TNetXNGFile::ReadBuffers( char     *buffer,
 //------------------------------------------------------------------------------
 //! Write a data chunk
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFile::WriteBuffer( const char */*buffer*/, Int_t /*length*/ )
+Bool_t TNetXNGFile::WriteBuffer( const char *buffer, Int_t length )
 {
-  return false;
+  using namespace XrdCl;
+
+  if( IsZombie() )
+  {
+    Error( "WriteBuffer", "WriteBuffer is not possible because object "
+                          "is in 'zombie' state" );
+    return kTRUE;
+  }
+
+  if( !fWritable )
+  {
+    if( gDebug > 1 )
+      Info( "WriteBuffer", "file not writable" );
+    return kTRUE;
+  }
+
+  if( !IsOpen() )
+  {
+    Error( "WriteBuffer", "The remote file is not open" );
+    return kTRUE;
+  }
+
+  // TODO: The old client writes to some ROOT cache here also. Do we need to?
+  XRootDStatus st = fFile->Write( 0, length, buffer );
+  if( !st.IsOK() )
+  {
+    Error( "WriteBuffer", "%s", st.GetErrorMessage() );
+    return kTRUE;
+  }
+
+  fOffset      += length;
+  fBytesWrite  += length;
+  fgBytesWrite += length;
+
+  return kFALSE;
 }
 
 //------------------------------------------------------------------------------
