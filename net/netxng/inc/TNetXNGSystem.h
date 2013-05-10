@@ -7,6 +7,8 @@
 #define ROOT_TNetXNGSystem
 
 #include "TSystem.h"
+#include <XrdCl/XrdClXRootDResponses.hh>
+#include <XrdCl/XrdClURL.hh>
 
 //------------------------------------------------------------------------------
 // Forward declarations
@@ -40,7 +42,7 @@ class TNetXNGSystem: public TSystem
     //--------------------------------------------------------------------------
     //! Destructor
     //--------------------------------------------------------------------------
-    virtual ~TNetXNGSystem() {}
+    virtual ~TNetXNGSystem();
 
     //--------------------------------------------------------------------------
     //! Open a directory
@@ -125,7 +127,10 @@ class TNetXNGSystem: public TSystem
     //--------------------------------------------------------------------------
     //! Data members
     //--------------------------------------------------------------------------
-    XrdCl::FileSystem *fFileSystem;
+    XrdCl::FileSystem              *fFileSystem;
+    XrdCl::URL                     *fUrl;
+    XrdCl::DirectoryList           *fDirList;
+    XrdCl::DirectoryList::Iterator  fDirListIter;
 };
 
 #endif

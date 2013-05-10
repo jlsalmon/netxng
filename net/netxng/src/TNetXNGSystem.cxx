@@ -14,7 +14,8 @@ ClassImp( TNetXNGSystem );
 //! Constructor - Create system class without connecting to server
 //------------------------------------------------------------------------------
 TNetXNGSystem::TNetXNGSystem( Bool_t /*owner*/ ):
-  TSystem( "-root", "Net file Helper System" ), fFileSystem( 0 )
+  TSystem( "-root", "Net file Helper System" ),
+  fFileSystem( 0 ), fUrl( 0 ), fDirList( 0 ), fDirListIter( 0 )
 {
   Info( "TNetXNGSystem", "Creating TNetXNGSystem" );
 }
@@ -23,21 +24,39 @@ TNetXNGSystem::TNetXNGSystem( Bool_t /*owner*/ ):
 //! Constructor - Create system class and connect to server
 //------------------------------------------------------------------------------
 TNetXNGSystem::TNetXNGSystem( const char *url, Bool_t /*owner*/ ):
-  TSystem( "-root", "Net file Helper System" )
+  TSystem( "-root", "Net file Helper System" ),
+  fUrl( 0 ), fDirList(0), fDirListIter( 0 )
 {
   using namespace XrdCl;
   Info( "TNetXNGSystem", "Creating TNetXNGSystem" );
-  URL fileUrl( url );
-  fFileSystem = new FileSystem( fileUrl );
+  fUrl        = new URL( std::string( url ) );
+  fFileSystem = new FileSystem( fUrl->GetURL() );
+}
+
+//------------------------------------------------------------------------------
+//! Destructor
+//------------------------------------------------------------------------------
+TNetXNGSystem::~TNetXNGSystem()
+{
+  delete fFileSystem;
+  delete fUrl;
+  delete fDirList;
 }
 
 //------------------------------------------------------------------------------
 //! Open a directory
 //------------------------------------------------------------------------------
-void *TNetXNGSystem::OpenDirectory( const char */*dir*/ )
+void* TNetXNGSystem::OpenDirectory( const char *dir )
 {
+  using namespace XrdCl;
   Info( "TNetXNGSystem", "OpenDirectory()" );
-  return (void *) 1;
+  delete fFileSystem;
+  delete fUrl;
+  delete fDirList;
+
+  fUrl        = new URL( std::string( dir ) );
+  fFileSystem = new FileSystem( fUrl->GetURL() );
+  return (void *) fUrl;
 }
 
 //------------------------------------------------------------------------------
@@ -58,9 +77,38 @@ void TNetXNGSystem::FreeDirectory( void */*dirp*/ )
 //------------------------------------------------------------------------------
 //! Get a directory entry.
 //------------------------------------------------------------------------------
-const char *TNetXNGSystem::GetDirEntry( void */*dirp*/ )
+const char* TNetXNGSystem::GetDirEntry( void *dirp )
 {
-  return 0;
+  using namespace XrdCl;
+  Info( "TNetXNGSystem", "GetDirEntry()" );
+  URL *url = (URL *) dirp;
+
+  if ( url != fUrl ) {
+     Error( "GetDirEntry","invalid directory pointer" );
+     return 0;
+  }
+
+  if( !fDirList )
+  {
+    XRootDStatus st = fFileSystem->DirList( fUrl->GetPath(),
+                                            DirListFlags::Locate,
+                                            fDirList );
+    if( !st.IsOK() )
+    {
+      Error( "GetDirEntry","%s", st.GetErrorMessage().c_str() );
+      return 0;
+    }
+
+    fDirListIter = fDirList->Begin();
+  }
+
+  if( fDirListIter != fDirList->End() )
+  {
+    const char *filename = (*fDirListIter)->GetName().c_str();
+    ++fDirListIter;
+    return filename;
+  }
+  else return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -68,15 +116,16 @@ const char *TNetXNGSystem::GetDirEntry( void */*dirp*/ )
 //------------------------------------------------------------------------------
 Int_t TNetXNGSystem::GetPathInfo( const char *path, FileStat_t &buf )
 {
-  Info( "TNetXNGSystem", "GetPathInfo()" );
   using namespace XrdCl;
+  Info( "TNetXNGSystem", "GetPathInfo()" );
   StatInfo *info = 0;
   URL target( path );
+  Info("GetPathInfo", "%s", target.GetHostId().c_str());
   XRootDStatus st = fFileSystem->Stat( target.GetPath(), info );
 
   if( !st.IsOK() )
   {
-    Error( "GetPathInfo", "%s", st.GetErrorMessage().c_str() );
+    Error( "GetPathInfo", "Error: %s", st.GetErrorMessage().c_str() );
     delete info;
     return 1;
   }
