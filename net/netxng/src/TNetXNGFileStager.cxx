@@ -5,6 +5,7 @@
 
 #include "TNetXNGFileStager.h"
 #include "TNetXNGSystem.h"
+#include <XrdCl/XrdClFileSystem.hh>
 
 ClassImp( TNetXNGFileStager );
 
@@ -52,9 +53,30 @@ Bool_t TNetXNGFileStager::IsStaged( const char *path )
 //------------------------------------------------------------------------------
 //! Get actual endpoint URL
 //------------------------------------------------------------------------------
-Int_t TNetXNGFileStager::Locate( const char */*path*/, TString &/*url*/ )
+Int_t TNetXNGFileStager::Locate( const char *path, TString &url )
 {
-  return -1;
+  Info( "TNetXNGFileStager", "Locate" );
+  using namespace XrdCl;
+  LocationInfo *info = 0;
+  URL pathUrl( path );
+  FileSystem fs( pathUrl );
+
+  XRootDStatus st = fs.Locate( pathUrl.GetURL(), OpenFlags::None, info );
+
+  if( !st.IsOK() )
+  {
+    Error( "Locate", "%s", st.GetErrorMessage().c_str() );
+    return 1;
+  }
+
+  Info("Locate", "lol");
+  LocationInfo::Iterator it;
+  for( it = info->Begin(); it != info->End(); ++it )
+  {
+    Info( "Locate", "Location: %s", *it->GetAddress().c_str() );
+  }
+
+  return 0;
 }
 
 //------------------------------------------------------------------------------
