@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------
 // Copyright (c) 2013 by European Organization for Nuclear Research (CERN)
 // Author: Lukasz Janyst <ljanyst@cern.ch>
+// Author: Justin Salmon <jsalmon@cern.ch>
 //------------------------------------------------------------------------------
 
 #ifndef ROOT_TNetXNGFile
@@ -29,7 +30,7 @@ class TNetXNGFile: public TFile
     //--------------------------------------------------------------------------
     //! Constructor
     //--------------------------------------------------------------------------
-    TNetXNGFile(): TFile(), fFile(0) {}
+    TNetXNGFile(): TFile(), fFile( 0 ), fMode( 0 ), fUrl( 0 ) {}
 
     //--------------------------------------------------------------------------
     //! Constructor

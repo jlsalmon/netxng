@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------
 // Copyright (c) 2013 by European Organization for Nuclear Research (CERN)
 // Author: Lukasz Janyst <ljanyst@cern.ch>
+// Author: Justin Salmon <jsalmon@cern.ch>
 //------------------------------------------------------------------------------
 
 #include "TNetXNGFile.h"
@@ -46,6 +47,10 @@ TNetXNGFile::~TNetXNGFile()
   delete fUrl;
 }
 
+//------------------------------------------------------------------------------
+//! Parse an file open mode given as a string into an integer that the
+//! client can use
+//------------------------------------------------------------------------------
 XrdCl::OpenFlags::Flags TNetXNGFile::ParseOpenMode( Option_t *modestr )
 {
   Info( "TNetXNGFile", "ParseOpenMode" );
@@ -136,13 +141,8 @@ Int_t TNetXNGFile::ReOpen( Option_t *modestr )
 //------------------------------------------------------------------------------
 Bool_t TNetXNGFile::ReadBuffer( char *buffer, Int_t length )
 {
-  using namespace XrdCl;
-  uint32_t bytesRead = 0;
-  Info( "ReadBuffer", "offset: %lld length: %d", fOffset, length );
-  XRootDStatus st = fFile->Read( fOffset, length, buffer, bytesRead );
-  Info( "ReadBuffer", "%s bytes read: %d", st.ToStr().c_str(), bytesRead );
-  fOffset += bytesRead;
-  return st.IsError();
+  // TODO: should we read from fOffset of from 0?
+  return ReadBuffer( buffer, fOffset, length );
 }
 
 //------------------------------------------------------------------------------
@@ -152,10 +152,49 @@ Bool_t TNetXNGFile::ReadBuffer( char *buffer, Long64_t position, Int_t length )
 {
   using namespace XrdCl;
   Info( "ReadBuffer", "offset: %lld length: %d", position, length );
+
+  //----------------------------------------------------------------------------
+  // Check the file isn't a zombie
+  //----------------------------------------------------------------------------
+  if( IsZombie() )
+  {
+    Error( "ReadBuffer", "ReadBuffer is not possible because object"
+                         " is in 'zombie' state" );
+    return kTRUE;
+  }
+
+  //----------------------------------------------------------------------------
+  // Check the file is actually open
+  //----------------------------------------------------------------------------
+  if( !IsOpen() )
+  {
+    Error( "ReadBuffer", "The remote file is not open" );
+    return kTRUE;
+  }
+
+  //----------------------------------------------------------------------------
+  // Read the data
+  //----------------------------------------------------------------------------
   uint32_t bytesRead = 0;
   XRootDStatus st = fFile->Read( position, length, buffer, bytesRead );
   Info( "ReadBuffer", "%s bytes read: %d", st.ToStr().c_str(), bytesRead );
-  return st.IsError();
+
+  if( !st.IsOK() )
+  {
+    Error( "ReadBuffer", "%s", st.GetErrorMessage().c_str() );
+    return kTRUE;
+  }
+
+  //----------------------------------------------------------------------------
+  // Bump the globals
+  //----------------------------------------------------------------------------
+  fOffset     += length;
+  fBytesRead  += bytesRead;
+  fgBytesRead += bytesRead;
+  fReadCalls  ++;
+  fgReadCalls ++;
+
+  return kFALSE;
 }
 
 //------------------------------------------------------------------------------
@@ -168,19 +207,58 @@ Bool_t TNetXNGFile::ReadBuffers( char     *buffer,
 {
   using namespace XrdCl;
   Info( "ReadBuffers", "nbuffs: %d", nbuffs );
-  ChunkList chunks;
 
+  //----------------------------------------------------------------------------
+  // Check the file isn't a zombie
+  //----------------------------------------------------------------------------
+  if( IsZombie() )
+  {
+    Error( "ReadBuffers", "ReadBuffers is not possible because object"
+                          " is in 'zombie' state" );
+    return kTRUE;
+  }
+
+  //----------------------------------------------------------------------------
+  // Check the file is actually open
+  //----------------------------------------------------------------------------
+  if( !IsOpen() )
+  {
+    Error( "ReadBuffers", "The remote file is not open" );
+    return kTRUE;
+  }
+
+  //----------------------------------------------------------------------------
+  // Build a list of chunks
+  //----------------------------------------------------------------------------
+  ChunkList chunks;
   for( int i = 0; i < nbuffs; ++i )
   {
     chunks.push_back( ChunkInfo( position[i], length[i] ) );
   }
 
-  VectorReadInfo *vi;
-  XRootDStatus st = fFile->VectorRead( chunks, (void *) buffer, vi );
-  Info( "ReadBuffer", "%s", st.ToStr().c_str() );
+  //----------------------------------------------------------------------------
+  // Read the data
+  //----------------------------------------------------------------------------
+  VectorReadInfo *info = 0;
+  XRootDStatus st      = fFile->VectorRead( chunks, (void *) buffer, info );
+  uint32_t size        = info->GetSize();
+  delete info;
 
-  delete vi;
-  return true;
+  if( !st.IsOK() )
+  {
+    Error( "ReadBuffers", "lol %s", st.GetErrorMessage().c_str() );
+    return kTRUE;
+  }
+
+  //----------------------------------------------------------------------------
+  // Bump the globals
+  //----------------------------------------------------------------------------
+  fBytesRead  += size;
+  fgBytesRead += size;
+  fReadCalls  ++;
+  fgReadCalls ++;
+
+  return kFALSE;
 }
 
 //------------------------------------------------------------------------------
@@ -190,13 +268,19 @@ Bool_t TNetXNGFile::WriteBuffer( const char *buffer, Int_t length )
 {
   using namespace XrdCl;
 
+  //----------------------------------------------------------------------------
+  // Check the file isn't a zombie
+  //----------------------------------------------------------------------------
   if( IsZombie() )
   {
-    Error( "WriteBuffer", "WriteBuffer is not possible because object "
-                          "is in 'zombie' state" );
+    Error( "WriteBuffer", "WriteBuffer is not possible because object"
+                          " is in 'zombie' state" );
     return kTRUE;
   }
 
+  //----------------------------------------------------------------------------
+  // Check the file is writable
+  //----------------------------------------------------------------------------
   if( !fWritable )
   {
     if( gDebug > 1 )
@@ -204,20 +288,30 @@ Bool_t TNetXNGFile::WriteBuffer( const char *buffer, Int_t length )
     return kTRUE;
   }
 
+  //----------------------------------------------------------------------------
+  // Check the file is actually open
+  //----------------------------------------------------------------------------
   if( !IsOpen() )
   {
     Error( "WriteBuffer", "The remote file is not open" );
     return kTRUE;
   }
 
+  //----------------------------------------------------------------------------
+  // Write the data
+  //
   // TODO: The old client writes to some ROOT cache here also. Do we need to?
+  //----------------------------------------------------------------------------
   XRootDStatus st = fFile->Write( 0, length, buffer );
   if( !st.IsOK() )
   {
-    Error( "WriteBuffer", "%s", st.GetErrorMessage() );
+    Error( "WriteBuffer", "%s", st.GetErrorMessage().c_str() );
     return kTRUE;
   }
 
+  //----------------------------------------------------------------------------
+  // Bump the globals
+  //----------------------------------------------------------------------------
   fOffset      += length;
   fBytesWrite  += length;
   fgBytesWrite += length;
