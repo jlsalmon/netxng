@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------
 // Copyright (c) 2013 by European Organization for Nuclear Research (CERN)
 // Author: Lukasz Janyst <ljanyst@cern.ch>
+// Author: Justin Salmon <jsalmon@cern.ch>
 //------------------------------------------------------------------------------
 
 #include "TNetXNGSystem.h"
@@ -62,16 +63,37 @@ void* TNetXNGSystem::OpenDirectory( const char *dir )
 //------------------------------------------------------------------------------
 //! Create a directory
 //------------------------------------------------------------------------------
-Int_t TNetXNGSystem::MakeDirectory( const char */*dir*/ )
+Int_t TNetXNGSystem::MakeDirectory( const char *dir )
 {
-  return -1;
+  using namespace XrdCl;
+  URL url( dir );
+  XRootDStatus st = fFileSystem->MkDir( url.GetPath(),
+                                        MkDirFlags::MakePath,
+                                        Access::None );
+
+  if( !st.IsOK() )
+  {
+    Error( "MakeDirectory", "%s", st.GetErrorMessage().c_str() );
+    return -1;
+  }
+
+  return 0;
 }
 
 //------------------------------------------------------------------------------
 //! Free a directory
 //------------------------------------------------------------------------------
-void TNetXNGSystem::FreeDirectory( void */*dirp*/ )
+void TNetXNGSystem::FreeDirectory( void *dirp )
 {
+  using namespace XrdCl;
+
+  if( (URL *) dirp != fUrl )
+  {
+    Error( "FreeDirectory", "invalid directory pointer" );
+    return;
+  }
+
+
 }
 
 //------------------------------------------------------------------------------
@@ -177,9 +199,18 @@ Bool_t TNetXNGSystem::ConsistentWith( const char */*path*/, void */*dirptr*/ )
 //------------------------------------------------------------------------------
 //! Unlink a file on the remote server
 //------------------------------------------------------------------------------
-int TNetXNGSystem::Unlink( const char */*path*/ )
+int TNetXNGSystem::Unlink( const char *path )
 {
-  return -1;
+  using namespace XrdCl;
+  XRootDStatus st = fFileSystem->Rm( std::string( path ) );
+
+  if( !st.IsOK() )
+  {
+    Error( "Unlink", "%s", st.GetErrorMessage().c_str() );
+    return -1;
+  }
+
+  return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -193,7 +224,20 @@ Bool_t TNetXNGSystem::IsPathLocal( const char */*path*/ )
 //------------------------------------------------------------------------------
 //! Get the endpoint URL of a file.
 //------------------------------------------------------------------------------
-Int_t TNetXNGSystem::Locate( const char */*path*/, TString &/*eurl*/ )
+Int_t TNetXNGSystem::Locate( const char *path, TString &endurl )
 {
-  return -1;
+  using namespace XrdCl;
+  LocationInfo *info = 0;
+  URL pathUrl( path );
+
+  XRootDStatus st = fFileSystem->Locate( pathUrl.GetURL(), OpenFlags::None, info );
+  if( !st.IsOK() )
+  {
+    Error( "Locate", "%s", st.GetErrorMessage().c_str() );
+    return 1;
+  }
+
+  endurl = info->Begin()->GetAddress();
+  return 0;
 }
+

@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------
 // Copyright (c) 2013 by European Organization for Nuclear Research (CERN)
 // Author: Lukasz Janyst <ljanyst@cern.ch>
+// Author: Justin Salmon <jsalmon@cern.ch>
 //------------------------------------------------------------------------------
 
 #ifndef ROOT_TNetXNGSystem
@@ -115,6 +116,8 @@ class TNetXNGSystem: public TSystem
     //!
     //! @param path   the entry-point URL of the file (in)
     //! @param endurl the endpoint URL of the file (out)
+    //! @returns      0 in case of success and 1 if the file could not be
+    //!               stat'ed.
     //--------------------------------------------------------------------------
     virtual Int_t Locate( const char* path, TString &endurl );
 
