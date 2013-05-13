@@ -141,7 +141,7 @@ Int_t TNetXNGFile::ReOpen( Option_t *modestr )
 //------------------------------------------------------------------------------
 Bool_t TNetXNGFile::ReadBuffer( char *buffer, Int_t length )
 {
-  // TODO: should we read from fOffset of from 0?
+  // TODO: should we read from fOffset or from 0?
   return ReadBuffer( buffer, fOffset, length );
 }
 
@@ -246,7 +246,7 @@ Bool_t TNetXNGFile::ReadBuffers( char     *buffer,
 
   if( !st.IsOK() )
   {
-    Error( "ReadBuffers", "lol %s", st.GetErrorMessage().c_str() );
+    Error( "ReadBuffers", "%s", st.GetErrorMessage().c_str() );
     return kTRUE;
   }
 
@@ -279,16 +279,6 @@ Bool_t TNetXNGFile::WriteBuffer( const char *buffer, Int_t length )
   }
 
   //----------------------------------------------------------------------------
-  // Check the file is writable
-  //----------------------------------------------------------------------------
-  if( !fWritable )
-  {
-    if( gDebug > 1 )
-      Info( "WriteBuffer", "file not writable" );
-    return kTRUE;
-  }
-
-  //----------------------------------------------------------------------------
   // Check the file is actually open
   //----------------------------------------------------------------------------
   if( !IsOpen() )
@@ -302,7 +292,7 @@ Bool_t TNetXNGFile::WriteBuffer( const char *buffer, Int_t length )
   //
   // TODO: The old client writes to some ROOT cache here also. Do we need to?
   //----------------------------------------------------------------------------
-  XRootDStatus st = fFile->Write( 0, length, buffer );
+  XRootDStatus st = fFile->Write( fOffset, length, buffer );
   if( !st.IsOK() )
   {
     Error( "WriteBuffer", "%s", st.GetErrorMessage().c_str() );
