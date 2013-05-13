@@ -1,10 +1,14 @@
 //------------------------------------------------------------------------------
 // Copyright (c) 2013 by European Organization for Nuclear Research (CERN)
 // Author: Lukasz Janyst <ljanyst@cern.ch>
+// Author: Justin Salmon <jsalmon@cern.ch>
 //------------------------------------------------------------------------------
 
 #include "TNetXNGFileStager.h"
 #include "TNetXNGSystem.h"
+#include "THashList.h"
+#include "TFileInfo.h"
+#include "TFileCollection.h"
 #include <XrdCl/XrdClFileSystem.hh>
 
 ClassImp( TNetXNGFileStager );
@@ -56,36 +60,70 @@ Bool_t TNetXNGFileStager::IsStaged( const char *path )
 Int_t TNetXNGFileStager::Locate( const char *path, TString &url )
 {
   Info( "TNetXNGFileStager", "Locate" );
-  using namespace XrdCl;
-  LocationInfo *info = 0;
-  URL pathUrl( path );
-  FileSystem fs( pathUrl );
-
-  XRootDStatus st = fs.Locate( pathUrl.GetURL(), OpenFlags::None, info );
-
-  if( !st.IsOK() )
-  {
-    Error( "Locate", "%s", st.GetErrorMessage().c_str() );
-    return 1;
-  }
-
-  Info("Locate", "lol");
-  LocationInfo::Iterator it;
-  for( it = info->Begin(); it != info->End(); ++it )
-  {
-    Info( "Locate", "Location: %s", *it->GetAddress().c_str() );
-  }
-
-  return 0;
+  return fSystem->Locate( path, url );
 }
 
 //------------------------------------------------------------------------------
 //! Bulk locate request for a collection of files
 //------------------------------------------------------------------------------
-Int_t TNetXNGFileStager::LocateCollection( TFileCollection */*fc*/,
-                                           Bool_t /*addDummyUrl*/ )
+Int_t TNetXNGFileStager::LocateCollection( TFileCollection *fc,
+                                           Bool_t addDummyUrl )
 {
-  return 0;
+  if( !fc )
+  {
+    Error( "Locate", "No input collection given!" );
+    return -1;
+  }
+
+  int        numFiles = 0;
+  TFileInfo *info;
+  TIter      it( fc->GetList() );
+  TString    startUrl, endUrl;
+
+  while( ( info = dynamic_cast<TFileInfo *>( it.Next() ) ) != NULL )
+  {
+    startUrl = info->GetCurrentUrl()->GetUrl();
+
+    //--------------------------------------------------------------------------
+    // File not staged
+    //--------------------------------------------------------------------------
+    if( fSystem->Locate( startUrl.Data(), endUrl ) )
+    {
+      info->ResetBit( TFileInfo::kStaged );
+
+      if( addDummyUrl ) info->AddUrl( "noop://none", kTRUE );
+
+      if( gDebug > 1 )
+        Info( "LocateCollection", "Not found: %s", startUrl.Data() );
+    }
+
+    //--------------------------------------------------------------------------
+    // File staged
+    //--------------------------------------------------------------------------
+    else
+    {
+      info->SetBit( TFileInfo::kStaged );
+      if( startUrl != endUrl )
+      {
+        info->AddUrl( endUrl.Data(), kTRUE );
+      }
+      else if( addDummyUrl )
+      {
+        //----------------------------------------------------------------------
+        // Returned URL identical to redirector URL
+        //----------------------------------------------------------------------
+        info->AddUrl( "noop://redir", kTRUE );
+      }
+
+      if( gDebug > 1 )
+        Info( "LocateCollection", "Found: %s --> %s",
+                                  startUrl.Data(), endUrl.Data() );
+    }
+
+    numFiles++;
+  }
+
+  return numFiles;
 }
 
 //------------------------------------------------------------------------------
@@ -99,7 +137,7 @@ Bool_t TNetXNGFileStager::Matches( const char */*s*/ )
 //------------------------------------------------------------------------------
 //! Issue a stage request for a single file
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFileStager::Stage( TCollection */*paths*/, Option_t */*opt*/ )
+Bool_t TNetXNGFileStager::Stage( const char */*path*/, Option_t */*opt*/ )
 {
   return kFALSE;
 }
@@ -107,7 +145,8 @@ Bool_t TNetXNGFileStager::Stage( TCollection */*paths*/, Option_t */*opt*/ )
 //------------------------------------------------------------------------------
 //! Issue stage requests for multiple files
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFileStager::Stage( const char */*path*/, Option_t */*opt*/ )
+Bool_t TNetXNGFileStager::Stage( TCollection */*paths*/, Option_t */*opt*/ )
 {
   return kFALSE;
 }
+
