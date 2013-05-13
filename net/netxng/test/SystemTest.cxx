@@ -8,37 +8,34 @@ void SystemTest()
   std::cout << "Beginning SystemTest" << std::endl;
 
   // OpenDirectory()
-  void *dir = gSystem->OpenDirectory( "root://localhost//tmp" );
+  TSystem *system = new TNetXNGSystem( "root://localhost" );
+  void *dir = system->OpenDirectory( "root://localhost//tmp" );
 
   // GetPathInfo()
   FileStat_t st;
-  gSystem->GetPathInfo( "root://localhost//tmp/Event.root", st );
+  system->GetPathInfo( "root://localhost//tmp/Event.root", st );
   std::cout << st.fSize << std::endl;
 
   // MakeDirectory()
-  if( !gSystem->MakeDirectory( "root://localhost//tmp/somedir" ) == 0 )
+  if( !system->MakeDirectory( "root://localhost//tmp/testdir" ) == 0 )
   {
     std::cout << "Error making directory" << std::endl;
   }
 
-  // FreeDirectory()
+  // Unlink()
+  if( !system->Unlink( "root://localhost//tmp/testdir" ) == 0 )
+  {
+    std::cout << "Error removing directory" << std::endl;
+  }
 
   // GetDirEntry()
   const char *filename;
-  // ! This should call plugin impl, but doesn't
-  filename = gSystem->GetDirEntry( dir );
-
-  while( ( filename = gSystem->GetDirEntry( dir ) ) != 0 )
+  while( ( filename = system->GetDirEntry( dir ) ) != 0 )
   {
     std::cout << "Filename: " << filename << std::endl;
   }
 
-  // CosistentWith()
+  // FreeDirectory()
+  system->FreeDirectory( dir );
 
-  // Unlink()
-
-
-  // IsPathLocal()
-
-  // Locate()
 }
