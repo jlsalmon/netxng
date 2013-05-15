@@ -206,7 +206,6 @@ Bool_t TNetXNGFile::ReadBuffers( char     *buffer,
                                  Int_t     nbuffs )
 {
   using namespace XrdCl;
-  Info( "ReadBuffers", "nbuffs: %d", nbuffs );
 
   //----------------------------------------------------------------------------
   // Check the file isn't a zombie
@@ -228,36 +227,69 @@ Bool_t TNetXNGFile::ReadBuffers( char     *buffer,
   }
 
   //----------------------------------------------------------------------------
+  // Find the max size for a single readv buffer
+  //----------------------------------------------------------------------------
+  URL url( fFile->GetDataServer() );
+  FileSystem fs( url );
+  Buffer     arg;
+  Buffer    *response;
+  arg.FromString( std::string( "readv_ior_max" ) );
+
+  XRootDStatus status = fs.Query( QueryCode::Config, arg, response );
+  if( !status.IsOK() )
+  {
+    Error( "ReadBuffers", "%s", status.GetErrorMessage().c_str() );
+    return kTRUE;
+  }
+
+  Int_t maxRead = TString( response->ToString() )
+                  .Remove( response->GetSize() - 1 ).Atoi();
+  delete response;
+
+  //----------------------------------------------------------------------------
   // Build a list of chunks
   //----------------------------------------------------------------------------
   ChunkList chunks;
   for( int i = 0; i < nbuffs; ++i )
   {
-    chunks.push_back( ChunkInfo( position[i], length[i] ) );
+    //--------------------------------------------------------------------------
+    // If the length is bigger than max readv size, split into smaller chunks
+    //--------------------------------------------------------------------------
+    if( length[i] > maxRead )
+    {
+      Int_t nsplit = length[i] / maxRead;
+      Int_t rem    = length[i] % maxRead;
+      Int_t j;
+
+      for( j = 0; j < nsplit; ++j )
+        chunks.push_back( ChunkInfo( position[i] + ( j * maxRead ), maxRead ) );
+      chunks.push_back(   ChunkInfo( position[i] + ( j * maxRead ), rem ) );
+    }
+    else chunks.push_back( ChunkInfo( position[i], length[i] ) );
   }
 
   //----------------------------------------------------------------------------
   // Read the data
   //----------------------------------------------------------------------------
   VectorReadInfo *info = 0;
-  XRootDStatus st      = fFile->VectorRead( chunks, (void *) buffer, info );
-  uint32_t size        = info->GetSize();
-  delete info;
+  XRootDStatus    st   = fFile->VectorRead( chunks, (void *) buffer, info );
 
   if( !st.IsOK() )
   {
     Error( "ReadBuffers", "%s", st.GetErrorMessage().c_str() );
+    delete info;
     return kTRUE;
   }
 
   //----------------------------------------------------------------------------
   // Bump the globals
   //----------------------------------------------------------------------------
-  fBytesRead  += size;
-  fgBytesRead += size;
+  fBytesRead  += info->GetSize();
+  fgBytesRead += info->GetSize();
   fReadCalls  ++;
   fgReadCalls ++;
 
+  delete info;
   return kFALSE;
 }
 
