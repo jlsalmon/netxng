@@ -19,7 +19,6 @@ ClassImp( TNetXNGFileStager );
 TNetXNGFileStager::TNetXNGFileStager( const char *url ):
   TFileStager( "xrd" )
 {
-  Info( "TNetXNGFileStager", "Creating TNetXNGFileStager" );
   fSystem = new TNetXNGSystem( url );
 }
 
@@ -59,7 +58,6 @@ Bool_t TNetXNGFileStager::IsStaged( const char *path )
 //------------------------------------------------------------------------------
 Int_t TNetXNGFileStager::Locate( const char *path, TString &url )
 {
-  Info( "TNetXNGFileStager", "Locate" );
   return fSystem->Locate( path, url );
 }
 

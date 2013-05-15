@@ -24,8 +24,6 @@ TNetXNGFile::TNetXNGFile( const char  *url,
   TFile( url, "NET", title, compress )
 {
   using namespace XrdCl;
-  Info( "TNetXNGFile", "Creating TNetXNGFile" );
-
   fFile = new File();
   fUrl  = new URL( std::string( url ) );
   fUrl->SetProtocol( std::string( "root" ) );
@@ -53,7 +51,6 @@ TNetXNGFile::~TNetXNGFile()
 //------------------------------------------------------------------------------
 XrdCl::OpenFlags::Flags TNetXNGFile::ParseOpenMode( Option_t *modestr )
 {
-  Info( "TNetXNGFile", "ParseOpenMode" );
   using namespace XrdCl;
   OpenFlags::Flags mode = OpenFlags::None;
   TString mod = ToUpper( TString( modestr ) );
@@ -101,7 +98,6 @@ void TNetXNGFile::Close( const Option_t */*option*/ )
 //------------------------------------------------------------------------------
 Int_t TNetXNGFile::ReOpen( Option_t *modestr )
 {
-  Info( "TNetXNGFile", "ReOpen" );
   using namespace XrdCl;
   OpenFlags::Flags mode = ParseOpenMode( modestr );
 
@@ -151,7 +147,8 @@ Bool_t TNetXNGFile::ReadBuffer( char *buffer, Int_t length )
 Bool_t TNetXNGFile::ReadBuffer( char *buffer, Long64_t position, Int_t length )
 {
   using namespace XrdCl;
-  Info( "ReadBuffer", "offset: %lld length: %d", position, length );
+  if( gDebug > 0 )
+    Info( "ReadBuffer", "offset: %lld length: %d", position, length );
 
   //----------------------------------------------------------------------------
   // Check the file isn't a zombie
@@ -177,7 +174,8 @@ Bool_t TNetXNGFile::ReadBuffer( char *buffer, Long64_t position, Int_t length )
   //----------------------------------------------------------------------------
   uint32_t bytesRead = 0;
   XRootDStatus st = fFile->Read( position, length, buffer, bytesRead );
-  Info( "ReadBuffer", "%s bytes read: %d", st.ToStr().c_str(), bytesRead );
+  if( gDebug > 0 )
+    Info( "ReadBuffer", "%s bytes read: %d", st.ToStr().c_str(), bytesRead );
 
   if( !st.IsOK() )
   {

@@ -18,7 +18,6 @@ TNetXNGSystem::TNetXNGSystem( Bool_t /*owner*/ ):
   TSystem( "-root", "Net file Helper System" ),
   fFileSystem( 0 ), fUrl( 0 ), fDirList( 0 ), fDirListIter( 0 )
 {
-  Info( "TNetXNGSystem", "Creating TNetXNGSystem" );
   //----------------------------------------------------------------------------
   // Name must start with '-' to bypass the TSystem singleton check
   //----------------------------------------------------------------------------
@@ -32,7 +31,6 @@ TNetXNGSystem::TNetXNGSystem( const char *url, Bool_t /*owner*/ ):
   TSystem( "-root", "Net file Helper System" ),
   fUrl( 0 ), fDirList(0), fDirListIter( 0 )
 {
-  Info( "TNetXNGSystem", "Creating TNetXNGSystem" );
   using namespace XrdCl;
 
   //----------------------------------------------------------------------------
@@ -59,7 +57,6 @@ TNetXNGSystem::~TNetXNGSystem()
 void* TNetXNGSystem::OpenDirectory( const char *dir )
 {
   using namespace XrdCl;
-  Info( "TNetXNGSystem", "OpenDirectory()" );
   FreeDirectory( (void *) fUrl );
 
   fUrl        = new URL( std::string( dir ) );
@@ -82,6 +79,7 @@ Int_t TNetXNGSystem::MakeDirectory( const char *dir )
     Error( "MakeDirectory", "%s", st.GetErrorMessage().c_str() );
     return -1;
   }
+
   return 0;
 }
 
@@ -142,7 +140,6 @@ const char* TNetXNGSystem::GetDirEntry( void *dirp )
 Int_t TNetXNGSystem::GetPathInfo( const char *path, FileStat_t &buf )
 {
   using namespace XrdCl;
-  Info( "TNetXNGSystem", "GetPathInfo()" );
   StatInfo *info = 0;
   URL target( path );
   XRootDStatus st = fFileSystem->Stat( target.GetPath(), info );
