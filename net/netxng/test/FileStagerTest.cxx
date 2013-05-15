@@ -7,7 +7,7 @@ void FileStagerTest()
 {
   std::cout << "Beginning FileStagerTest" << std::endl;
 
-  TFileStager s( "root://localhost" );
+  TFileStager s = TFileStager::Open( "root://localhost" );
 
   // IsStaged()
   Bool_t isStaged = s.IsStaged( "root://localhost//tmp/Event.root" );
