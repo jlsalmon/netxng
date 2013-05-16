@@ -1,8 +1,21 @@
-//------------------------------------------------------------------------------
-// Copyright (c) 2013 by European Organization for Nuclear Research (CERN)
-// Author: Lukasz Janyst <ljanyst@cern.ch>
-// Author: Justin Salmon <jsalmon@cern.ch>
-//------------------------------------------------------------------------------
+/*******************************************************************************
+ * Copyright (C) 1995-2013, Rene Brun and Fons Rademakers.                     *
+ * All rights reserved.                                                        *
+ *                                                                             *
+ * For the licensing terms see $ROOTSYS/LICENSE.                               *
+ * For the list of contributors see $ROOTSYS/README/CREDITS.                   *
+ ******************************************************************************/
+
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+// TNetXNGSystem                                                              //
+//                                                                            //
+// Authors: Lukasz Janyst, Justin Salmon                                      //
+//          CERN, 2013                                                        //
+//                                                                            //
+// Enables access to XRootD filesystem interface using the new client.        //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 
 #include "TNetXNGSystem.h"
 #include "TFileStager.h"
@@ -12,358 +25,364 @@
 #include <XrdCl/XrdClFileSystem.hh>
 #include <XrdCl/XrdClXRootDResponses.hh>
 
-ClassImp( TNetXNGSystem );
+ClassImp( TNetXNGSystem);
 
-//------------------------------------------------------------------------------
-//! Constructor - Create system class without connecting to server
-//------------------------------------------------------------------------------
-TNetXNGSystem::TNetXNGSystem( Bool_t /*owner*/ ):
-  TSystem( "-root", "Net file Helper System" ),
-  fFileSystem( 0 ), fUrl( 0 ), fDirList( 0 ), fDirListIter( 0 )
+//______________________________________________________________________________
+TNetXNGSystem::TNetXNGSystem(Bool_t /*owner*/) :
+   TSystem("-root", "Net file Helper System"),
+   fFileSystem(0), fUrl(0), fDirList(0), fDirListIter(0)
 {
-  //----------------------------------------------------------------------------
-  // Name must start with '-' to bypass the TSystem singleton check
-  //----------------------------------------------------------------------------
-  SetName("root");
+   // Constructor: Create system class without connecting to server
+   //
+   // param owner: (unused)
+
+   // Name must start with '-' to bypass the TSystem singleton check
+   SetName("root");
 }
 
-//------------------------------------------------------------------------------
-//! Constructor - Create system class and connect to server
-//------------------------------------------------------------------------------
-TNetXNGSystem::TNetXNGSystem( const char *url, Bool_t /*owner*/ ):
-  TSystem( "-root", "Net file Helper System" ),
-  fUrl( 0 ), fDirList(0), fDirListIter( 0 )
+//______________________________________________________________________________
+TNetXNGSystem::TNetXNGSystem(const char *url, Bool_t /*owner*/) :
+   TSystem("-root", "Net file Helper System"),
+   fUrl(0), fDirList(0), fDirListIter(0)
 {
-  using namespace XrdCl;
+   // Constructor: Create system class and connect to server
+   //
+   // param url:   URL of the entry-point server to be contacted
+   // param owner: (unused)
 
-  //----------------------------------------------------------------------------
-  // Name must start with '-' to bypass the TSystem singleton check
-  //----------------------------------------------------------------------------
-  SetName("root");
-  fUrl        = new URL( std::string( url ) );
-  fFileSystem = new FileSystem( fUrl->GetURL() );
+   using namespace XrdCl;
+
+   // Name must start with '-' to bypass the TSystem singleton check
+   SetName("root");
+   fUrl        = new URL(std::string(url));
+   fFileSystem = new FileSystem(fUrl->GetURL());
 }
 
-//------------------------------------------------------------------------------
-//! Destructor
-//------------------------------------------------------------------------------
+//______________________________________________________________________________
 TNetXNGSystem::~TNetXNGSystem()
 {
-  delete fFileSystem;
-  delete fUrl;
-  delete fDirList;
+   // Destructor
+
+   delete fFileSystem;
+   delete fUrl;
+   delete fDirList;
 }
 
-//------------------------------------------------------------------------------
-//! Open a directory
-//------------------------------------------------------------------------------
-void* TNetXNGSystem::OpenDirectory( const char *dir )
+//______________________________________________________________________________
+void* TNetXNGSystem::OpenDirectory(const char *dir)
 {
-  using namespace XrdCl;
-  FreeDirectory( (void *) fUrl );
+   // Open a directory
+   //
+   // param dir: the name of the directory to open
+   // returns:   a non-zero pointer (with no special purpose) in case of
+   //            success, 0 in case of error
 
-  fUrl        = new URL( std::string( dir ) );
-  fFileSystem = new FileSystem( fUrl->GetURL() );
-  return (void *) fUrl;
+   using namespace XrdCl;
+   FreeDirectory((void *) fUrl);
+
+   fUrl        = new URL(std::string(dir));
+   fFileSystem = new FileSystem(fUrl->GetURL());
+   return (void *) fUrl;
 }
 
-//------------------------------------------------------------------------------
-//! Create a directory
-//------------------------------------------------------------------------------
-Int_t TNetXNGSystem::MakeDirectory( const char *dir )
+//______________________________________________________________________________
+Int_t TNetXNGSystem::MakeDirectory(const char *dir)
 {
-  using namespace XrdCl;
-  URL url( dir );
-  XRootDStatus st = fFileSystem->MkDir( url.GetPath(),
-                                        MkDirFlags::MakePath,
-                                        Access::None );
-  if( !st.IsOK() )
-  {
-    Error( "MakeDirectory", "%s", st.GetErrorMessage().c_str() );
-    return -1;
-  }
+   // Create a directory
+   //
+   // param dir: the directory name
+   // returns:   0 on success, -1 otherwise
 
-  return 0;
+   using namespace XrdCl;
+   URL url(dir);
+   XRootDStatus st = fFileSystem->MkDir(url.GetPath(), MkDirFlags::MakePath,
+                                        Access::None);
+   if (!st.IsOK()) {
+      Error("MakeDirectory", "%s", st.GetErrorMessage().c_str());
+      return -1;
+   }
+
+   return 0;
 }
 
-//------------------------------------------------------------------------------
-//! Free a directory
-//------------------------------------------------------------------------------
-void TNetXNGSystem::FreeDirectory( void *dirp )
+//______________________________________________________________________________----
+void TNetXNGSystem::FreeDirectory(void *dirp)
 {
-  if( fUrl && (XrdCl::URL *) dirp != fUrl )
-  {
-    Error( "FreeDirectory", "invalid directory pointer" );
-    return;
-  }
+   // Free a directory
+   //
+   // param dirp: the pointer to the directory to be freed
 
-  delete fFileSystem;
-  delete fUrl;
-  delete fDirList;
+   if (fUrl && (XrdCl::URL *) dirp != fUrl) {
+      Error("FreeDirectory", "invalid directory pointer");
+      return;
+   }
+
+   delete fFileSystem;
+   delete fUrl;
+   delete fDirList;
 }
 
-//------------------------------------------------------------------------------
-//! Get a directory entry.
-//------------------------------------------------------------------------------
-const char* TNetXNGSystem::GetDirEntry( void *dirp )
+//______________________________________________________________________________
+const char* TNetXNGSystem::GetDirEntry(void *dirp)
 {
-  using namespace XrdCl;
-  URL *url = (URL *) dirp;
+   // Get a directory entry.
+   //
+   // param dirp: the directory pointer
+   // returns:    0 in case there are no more entries
 
-  if ( url != fUrl ) {
-     Error( "GetDirEntry","invalid directory pointer" );
-     return 0;
-  }
+   using namespace XrdCl;
+   URL *url = (URL *) dirp;
 
-  if( !fDirList )
-  {
-    XRootDStatus st = fFileSystem->DirList( fUrl->GetPath(),
-                                            DirListFlags::Locate,
-                                            fDirList );
-    if( !st.IsOK() )
-    {
-      Error( "GetDirEntry","%s", st.GetErrorMessage().c_str() );
+   if (url != fUrl) {
+      Error("GetDirEntry", "invalid directory pointer");
       return 0;
-    }
-    fDirListIter = fDirList->Begin();
-  }
+   }
 
-  if( fDirListIter != fDirList->End() )
-  {
-    const char *filename = (*fDirListIter)->GetName().c_str();
-    ++fDirListIter;
-    return filename;
-  }
-  else return 0;
+   if (!fDirList) {
+      XRootDStatus st = fFileSystem->DirList(fUrl->GetPath(),
+                                             DirListFlags::Locate, fDirList);
+      if (!st.IsOK()) {
+         Error("GetDirEntry", "%s", st.GetErrorMessage().c_str());
+         return 0;
+      }
+      fDirListIter = fDirList->Begin();
+   }
+
+   if (fDirListIter != fDirList->End()) {
+      const char *filename = (*fDirListIter)->GetName().c_str();
+      ++fDirListIter;
+      return filename;
+   } else return 0;
 }
 
-//------------------------------------------------------------------------------
-//! Get info about a file (stat)
-//------------------------------------------------------------------------------
-Int_t TNetXNGSystem::GetPathInfo( const char *path, FileStat_t &buf )
+//______________________________________________________________________________
+Int_t TNetXNGSystem::GetPathInfo(const char *path, FileStat_t &buf)
 {
-  using namespace XrdCl;
-  StatInfo *info = 0;
-  URL target( path );
-  XRootDStatus st = fFileSystem->Stat( target.GetPath(), info );
+   // Get info about a file (stat)
+   //
+   // param path: the path of the file to stat (in)
+   // param buf:  structure that will hold the stat info (out)
+   // returns:    0 if success, 1 if the file could not be stat'ed
 
-  if( !st.IsOK() )
-  {
-    Error( "GetPathInfo", "Error: %s", st.GetErrorMessage().c_str() );
-    delete info;
-    return 1;
-  }
-  else
-  {
-    //--------------------------------------------------------------------------
-    // Flag offline files
-    //--------------------------------------------------------------------------
-    if ( info->GetFlags() & kXR_offline )
-    {
-      buf.fMode = kS_IFOFF;
-    }
-    else
-    {
-      std::stringstream sstr( info->GetId() );
-      Long64_t id;
-      sstr >> id;
+   using namespace XrdCl;
+   StatInfo *info = 0;
+   URL target(path);
+   XRootDStatus st = fFileSystem->Stat(target.GetPath(), info);
 
-      buf.fDev    = ( id >> 32 );
-      buf.fIno    = ( id & 0x00000000FFFFFFFF );
-      buf.fUid    = -1;  // not available
-      buf.fGid    = -1;  // not available
-      buf.fIsLink = 0;   // not available
-      buf.fSize   = info->GetSize();
-      buf.fMtime  = info->GetModTime();
+   if (!st.IsOK()) {
 
-      if ( info->GetFlags() & kXR_xset )
-        buf.fMode = ( kS_IFREG | kS_IXUSR | kS_IXGRP | kS_IXOTH );
-      if ( info->GetFlags() == 0 )           buf.fMode  = kS_IFREG;
-      if ( info->GetFlags() & kXR_isDir )    buf.fMode  = kS_IFDIR;
-      if ( info->GetFlags() & kXR_other )    buf.fMode  = kS_IFSOCK;
-      if ( info->GetFlags() & kXR_readable ) buf.fMode |= kS_IRUSR;
-      if ( info->GetFlags() & kXR_writable ) buf.fMode |= kS_IWUSR;
-    }
-  }
+      Error("GetPathInfo", "Error: %s", st.GetErrorMessage().c_str());
+      delete info;
+      return 1;
 
-  delete info;
-  return 0;
+   } else {
+
+      // Flag offline files
+      if (info->GetFlags() & kXR_offline) {
+         buf.fMode = kS_IFOFF;
+      } else {
+         std::stringstream sstr(info->GetId());
+         Long64_t id;
+         sstr >> id;
+
+         buf.fDev    = (id >> 32);
+         buf.fIno    = (id & 0x00000000FFFFFFFF);
+         buf.fUid    = -1;  // not available
+         buf.fGid    = -1;  // not available
+         buf.fIsLink = 0;   // not available
+         buf.fSize   = info->GetSize();
+         buf.fMtime  = info->GetModTime();
+
+         if (info->GetFlags() & kXR_xset)
+            buf.fMode = (kS_IFREG | kS_IXUSR | kS_IXGRP | kS_IXOTH);
+         if (info->GetFlags() == 0)           buf.fMode = kS_IFREG;
+         if (info->GetFlags() & kXR_isDir)    buf.fMode = kS_IFDIR;
+         if (info->GetFlags() & kXR_other)    buf.fMode = kS_IFSOCK;
+         if (info->GetFlags() & kXR_readable) buf.fMode |= kS_IRUSR;
+         if (info->GetFlags() & kXR_writable) buf.fMode |= kS_IWUSR;
+      }
+   }
+
+   delete info;
+   return 0;
 }
 
-//------------------------------------------------------------------------------
-//! Check consistency of this helper with the one required by 'path' or 'dirptr'
-//------------------------------------------------------------------------------
-Bool_t TNetXNGSystem::ConsistentWith( const char *path, void *dirptr )
+//______________________________________________________________________________
+Bool_t TNetXNGSystem::ConsistentWith(const char *path, void *dirptr)
 {
-  using namespace XrdCl;
+   // Check consistency of this helper with the one required by 'path' or
+   // 'dirptr'
+   //
+   // param path:   the path to check
+   // param dirptr: the directory pointer to check
 
-  //----------------------------------------------------------------------------
-  // Standard check: only the protocol part of 'path' is required to match
-  //----------------------------------------------------------------------------
-  Bool_t checkstd = TSystem::ConsistentWith(path, dirptr);
-  if (!checkstd) return kFALSE;
+   using namespace XrdCl;
 
-  URL url( path );
-  Bool_t checknet = path ? kFALSE : kTRUE;
+   // Standard check: only the protocol part of 'path' is required to match
+   Bool_t checkstd = TSystem::ConsistentWith(path, dirptr);
+   if (!checkstd)
+      return kFALSE;
 
-  if( gDebug > 1 )
-    Info( "ConsistentWith", "fUser:'%s' (%s), fHost:'%s' (%s), fPort:%d (%d)",
-        fUrl->GetUserName().c_str(), url.GetUserName().c_str(),
-        fUrl->GetHostName().c_str(), url.GetHostName().c_str(),
-        fUrl->GetPort(), url.GetPort() );
+   URL url(path);
+   Bool_t checknet = path ? kFALSE : kTRUE;
 
-  //----------------------------------------------------------------------------
-  // Require match of 'user' and 'host'
-  //----------------------------------------------------------------------------
-  if( fUrl->GetUserName() == url.GetUserName() &&
-      fUrl->GetHostName() == url.GetHostName() &&
-      fUrl->GetPort() == url.GetPort() )
-    checknet = kTRUE;
+   if (gDebug > 1)
+      Info("ConsistentWith", "fUser:'%s' (%s), fHost:'%s' (%s), fPort:%d (%d)",
+            fUrl->GetUserName().c_str(), url.GetUserName().c_str(),
+            fUrl->GetHostName().c_str(), url.GetHostName().c_str(),
+            fUrl->GetPort(), url.GetPort());
 
-  return ( checkstd && checknet );
+   // Require match of 'user' and 'host'
+   if (fUrl->GetUserName() == url.GetUserName()
+       && fUrl->GetHostName() == url.GetHostName()
+       && fUrl->GetPort() == url.GetPort())
+      checknet = kTRUE;
+
+   return (checkstd && checknet);
 }
 
-//------------------------------------------------------------------------------
-//! Unlink a file on the remote server
-//------------------------------------------------------------------------------
-int TNetXNGSystem::Unlink( const char *path )
+//______________________________________________________________________________
+int TNetXNGSystem::Unlink(const char *path)
 {
-  using namespace XrdCl;
-  StatInfo *info;
-  URL url( path );
+   // Unlink a file on the remote server
+   //
+   // param path: the path of the file to unlink
+   // returns:    0 on success, -1 otherwise
 
-  //----------------------------------------------------------------------------
-  // Stat the path to find out if it's a file or a directory
-  //----------------------------------------------------------------------------
-  XRootDStatus st = fFileSystem->Stat( url.GetPath(), info );
-  if( !st.IsOK() )
-  {
-    Error( "Unlink", "%s", st.GetErrorMessage().c_str() );
-    delete info;
-    return -1;
-  }
+   using namespace XrdCl;
+   StatInfo *info;
+   URL url(path);
 
-  if( info->TestFlags( StatInfo::IsDir ) )
-    st = fFileSystem->RmDir( url.GetPath() );
-  else
-    st = fFileSystem->Rm( url.GetPath() );
-  delete info;
+   // Stat the path to find out if it's a file or a directory
+   XRootDStatus st = fFileSystem->Stat(url.GetPath(), info);
+   if (!st.IsOK()) {
+      Error("Unlink", "%s", st.GetErrorMessage().c_str());
+      delete info;
+      return -1;
+   }
 
-  if( !st.IsOK() )
-  {
-    Error( "Unlink", "%s", st.GetErrorMessage().c_str() );
-    return -1;
-  }
+   if (info->TestFlags(StatInfo::IsDir))
+      st = fFileSystem->RmDir(url.GetPath());
+   else
+      st = fFileSystem->Rm(url.GetPath());
+   delete info;
 
-  return 0;
+   if (!st.IsOK()) {
+      Error("Unlink", "%s", st.GetErrorMessage().c_str());
+      return -1;
+   }
+
+   return 0;
 }
 
-//------------------------------------------------------------------------------
-//! Is this path a local path?
-//------------------------------------------------------------------------------
-Bool_t TNetXNGSystem::IsPathLocal( const char *path )
+//______________________________________________________________________________
+Bool_t TNetXNGSystem::IsPathLocal(const char *path)
 {
-  using namespace XrdCl;
-  ProtocolInfo *info = 0;
-  FileSystem fs = FileSystem( URL( path ) );
+   // Is this path a local path?
+   //
+   // param path: the URL of the path to check
+   // returns:    kTRUE if the path is local, kFALSE otherwise
 
-  //----------------------------------------------------------------------------
-  // Grab the protocol info for this server
-  //----------------------------------------------------------------------------
-  XRootDStatus st = fs.Protocol( info );
-  if( !st.IsOK() )
-  {
-    Error( "IsPathLocal", "%s", st.GetErrorMessage().c_str() );
-    delete info;
-    return kFALSE;
-  }
+   using namespace XrdCl;
+   ProtocolInfo *info = 0;
+   FileSystem fs = FileSystem(URL(path));
 
-  //----------------------------------------------------------------------------
-  // Cannot assert locality if not an endpoint data server
-  //----------------------------------------------------------------------------
-  if( !info->TestHostInfo( ProtocolInfo::IsServer ) )
-    return kFALSE;
+   // Grab the protocol info for this server
+   XRootDStatus st = fs.Protocol(info);
+   if (!st.IsOK()) {
+      Error("IsPathLocal", "%s", st.GetErrorMessage().c_str());
+      delete info;
+      return kFALSE;
+   }
 
-  delete info;
-  //----------------------------------------------------------------------------
-  // Either an end-point data server or 'rootd': check for locality
-  //----------------------------------------------------------------------------
-  return TSystem::IsPathLocal(path);
+   // Cannot assert locality if not an endpoint data server
+   if (!info->TestHostInfo(ProtocolInfo::IsServer))
+      return kFALSE;
+
+   delete info;
+   // Either an end-point data server or 'rootd': check for locality
+   return TSystem::IsPathLocal(path);
 }
 
-//------------------------------------------------------------------------------
-//! Get the endpoint URL of a file.
-//------------------------------------------------------------------------------
-Int_t TNetXNGSystem::Locate( const char *path, TString &endurl )
+//______________________________________________________________________________
+Int_t TNetXNGSystem::Locate(const char *path, TString &endurl)
 {
-  using namespace XrdCl;
-  LocationInfo *info = 0;
-  URL pathUrl( path );
+   // Get the endpoint URL of a file.
+   //
+   // param path:   the entry-point URL of the file (in)
+   // param endurl: the endpoint URL of the file (out)
+   // returns:      0 in case of success and 1 if the file could not be
+   //               stat'ed.
 
-  //----------------------------------------------------------------------------
-  // Locate the file
-  //----------------------------------------------------------------------------
-  XRootDStatus st = fFileSystem->Locate( pathUrl.GetPath(),
-                                         OpenFlags::None,
-                                         info );
-  if( !st.IsOK() )
-  {
-    Error( "Locate", "%s", st.GetErrorMessage().c_str() );
-    delete info;
-    return 1;
-  }
+   using namespace XrdCl;
+   LocationInfo *info = 0;
+   URL pathUrl(path);
 
-  //----------------------------------------------------------------------------
-  // Return the first address
-  //----------------------------------------------------------------------------
-  endurl = info->Begin()->GetAddress();
-  delete info;
-  return 0;
+   // Locate the file
+   XRootDStatus st = fFileSystem->Locate(pathUrl.GetPath(), OpenFlags::None,
+                                         info);
+   if (!st.IsOK()) {
+      Error("Locate", "%s", st.GetErrorMessage().c_str());
+      delete info;
+      return 1;
+   }
+
+   // Return the first address
+   endurl = info->Begin()->GetAddress();
+   delete info;
+   return 0;
 }
 
-//------------------------------------------------------------------------------
-//! Issue a stage request for a single file
-//------------------------------------------------------------------------------
-Int_t TNetXNGSystem::Stage( const char* path, UChar_t priority )
+//______________________________________________________________________________
+Int_t TNetXNGSystem::Stage(const char* path, UChar_t priority)
 {
-  TList *files = new TList();
-  files->Add( (TObject *) new TUrl( path ) );
-  return Stage( (TCollection *) files, priority );
+   // Issue a stage request for a single file
+   //
+   // param path: the path of the file to stage
+   // param opt:  defines 'option' and 'priority' for 'Prepare': the format is
+   //             opt = "option=o priority=p"
+   // returns:    0 for success, -1 for error
+
+   TList *files = new TList();
+   files->Add((TObject *) new TUrl(path));
+   return Stage((TCollection *) files, priority);
 }
 
-//------------------------------------------------------------------------------
-//! Issue stage requests for multiple files
-//------------------------------------------------------------------------------
-Int_t TNetXNGSystem::Stage( TCollection *files, UChar_t priority )
+//______________________________________________________________________________
+Int_t TNetXNGSystem::Stage(TCollection *files, UChar_t priority)
 {
-  using namespace XrdCl;
-  std::vector<std::string> fileList;
-  TIter it( files );
-  TObject *object = 0;
+   // Issue stage requests for multiple files
+   //
+   // param pathlist: list of paths of files to stage
+   // param opt:      defines 'option' and 'priority' for 'Prepare': the
+   //                 format is opt = "option=o priority=p"
+   // returns:        0 for success, -1 for error
 
-  while( ( object = (TObject *) it.Next() ) )
-  {
-    TString path = TFileStager::GetPathName( object );
-    if( path == "" )
-    {
-      Warning( "Stage", "object is of unexpected type %s - ignoring",
-                         object->ClassName() );
-      continue;
-    }
+   using namespace XrdCl;
+   std::vector<std::string> fileList;
+   TIter it(files);
+   TObject *object = 0;
 
-    fileList.push_back( std::string( URL( path.Data() ).GetPath() ) );
-  }
+   while ((object = (TObject *) it.Next())) {
 
-  Buffer *response;
-  XRootDStatus st = fFileSystem->Prepare( fileList, PrepareFlags::Stage,
-                                          (uint8_t) priority, response );
-  if( !st.IsOK() )
-  {
-    Error( "Stage", "%s", st.GetErrorMessage().c_str() );
-    return -1;
-  }
+      TString path = TFileStager::GetPathName(object);
+      if (path == "") {
+         Warning("Stage", "object is of unexpected type %s - ignoring",
+               object->ClassName());
+         continue;
+      }
 
-  return 0;
+      fileList.push_back(std::string(URL(path.Data()).GetPath()));
+   }
+
+   Buffer *response;
+   XRootDStatus st = fFileSystem->Prepare(fileList, PrepareFlags::Stage,
+                                          (uint8_t) priority, response);
+   if (!st.IsOK()) {
+      Error("Stage", "%s", st.GetErrorMessage().c_str());
+      return -1;
+   }
+
+   return 0;
 }
-
 
