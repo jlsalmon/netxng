@@ -5,7 +5,10 @@
 //------------------------------------------------------------------------------
 
 #include "TNetXNGSystem.h"
+#include "TFileStager.h"
 #include "Rtypes.h"
+#include "TList.h"
+#include "TUrl.h"
 #include <XrdCl/XrdClFileSystem.hh>
 #include <XrdCl/XrdClXRootDResponses.hh>
 
@@ -317,4 +320,50 @@ Int_t TNetXNGSystem::Locate( const char *path, TString &endurl )
   delete info;
   return 0;
 }
+
+//------------------------------------------------------------------------------
+//! Issue a stage request for a single file
+//------------------------------------------------------------------------------
+Int_t TNetXNGSystem::Stage( const char* path, UChar_t priority )
+{
+  TList *files = new TList();
+  files->Add( (TObject *) new TUrl( path ) );
+  return Stage( (TCollection *) files, priority );
+}
+
+//------------------------------------------------------------------------------
+//! Issue stage requests for multiple files
+//------------------------------------------------------------------------------
+Int_t TNetXNGSystem::Stage( TCollection *files, UChar_t priority )
+{
+  using namespace XrdCl;
+  std::vector<std::string> fileList;
+  TIter it( files );
+  TObject *object = 0;
+
+  while( ( object = (TObject *) it.Next() ) )
+  {
+    TString path = TFileStager::GetPathName( object );
+    if( path == "" )
+    {
+      Warning( "Stage", "object is of unexpected type %s - ignoring",
+                         object->ClassName() );
+      continue;
+    }
+
+    fileList.push_back( std::string( URL( path.Data() ).GetPath() ) );
+  }
+
+  Buffer *response;
+  XRootDStatus st = fFileSystem->Prepare( fileList, PrepareFlags::Stage,
+                                          (uint8_t) priority, response );
+  if( !st.IsOK() )
+  {
+    Error( "Stage", "%s", st.GetErrorMessage().c_str() );
+    return -1;
+  }
+
+  return 0;
+}
+
 

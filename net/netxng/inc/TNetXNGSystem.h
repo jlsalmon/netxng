@@ -8,6 +8,7 @@
 #define ROOT_TNetXNGSystem
 
 #include "TSystem.h"
+#include "TCollection.h"
 #include <XrdCl/XrdClXRootDResponses.hh>
 #include <XrdCl/XrdClURL.hh>
 
@@ -120,6 +121,26 @@ class TNetXNGSystem: public TSystem
     //!               stat'ed.
     //--------------------------------------------------------------------------
     virtual Int_t Locate( const char* path, TString &endurl );
+
+    //--------------------------------------------------------------------------
+    //! Issue a stage request for a single file
+    //!
+    //! @param path the path of the file to stage
+    //! @param opt  defines 'option' and 'priority' for 'Prepare': the format is
+    //!             opt = "option=o priority=p"
+    //! @returns    0 for success, -1 for error
+    //--------------------------------------------------------------------------
+    virtual Int_t Stage( const char* path, UChar_t priority );
+
+    //--------------------------------------------------------------------------
+    //! Issue stage requests for multiple files
+    //!
+    //! @param pathlist list of paths of files to stage
+    //! @param opt      defines 'option' and 'priority' for 'Prepare': the
+    //!                 format is opt = "option=o priority=p"
+    //! @returns        0 for success, -1 for error
+    //--------------------------------------------------------------------------
+    virtual Int_t Stage( TCollection *files, UChar_t priority );
 
     //--------------------------------------------------------------------------
     //! ROOT class definition

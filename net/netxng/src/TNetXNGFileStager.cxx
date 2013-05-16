@@ -127,24 +127,49 @@ Int_t TNetXNGFileStager::LocateCollection( TFileCollection *fc,
 //------------------------------------------------------------------------------
 //! Returns kTRUE if stager 's' is compatible with current stager
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFileStager::Matches( const char */*s*/ )
+Bool_t TNetXNGFileStager::Matches( const char *s )
 {
-  return kFALSE;
+  return ( ( s && ( fName == s ) ) ? kTRUE : kFALSE );
 }
 
 //------------------------------------------------------------------------------
 //! Issue a stage request for a single file
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFileStager::Stage( const char */*path*/, Option_t */*opt*/ )
+Bool_t TNetXNGFileStager::Stage( const char *path, Option_t *opt )
 {
-  return kFALSE;
+  Int_t priority = ParseStagePriority( opt );
+  return fSystem->Stage( path, priority );
 }
 
 //------------------------------------------------------------------------------
 //! Issue stage requests for multiple files
 //------------------------------------------------------------------------------
-Bool_t TNetXNGFileStager::Stage( TCollection */*paths*/, Option_t */*opt*/ )
+Bool_t TNetXNGFileStager::Stage( TCollection *paths, Option_t *opt )
 {
-  return kFALSE;
+  Int_t priority = ParseStagePriority( opt );
+  return fSystem->Stage( paths, priority );
 }
 
+//--------------------------------------------------------------------------
+//! Get a staging priority value from an option string
+//--------------------------------------------------------------------------
+UChar_t TNetXNGFileStager::ParseStagePriority( Option_t *opt )
+{
+  UChar_t priority = 0;
+  Ssiz_t from = 0;
+  TString token;
+
+  while( TString( opt ).Tokenize( token, from, "[ ,|]" ) )
+  {
+    if( token.Contains( "priority=" ) )
+    {
+      token.ReplaceAll( "priority=", "" );
+      if( token.IsDigit() )
+      {
+        priority = token.Atoi();
+      }
+    }
+  }
+
+  return priority;
+}

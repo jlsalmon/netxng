@@ -59,7 +59,8 @@ class TNetXNGFileStager: public TFileStager
     Int_t  LocateCollection( TFileCollection *fc, Bool_t addDummyUrl = kFALSE );
 
     //--------------------------------------------------------------------------
-    //! Returns kTRUE if stager 's' is compatible with current stager
+    //! Returns kTRUE if stager 's' is compatible with current stager. Avoids
+    //! multiple instantiations of the potentially the same TNetXNGFileStager.
     //--------------------------------------------------------------------------
     Bool_t Matches( const char *s );
 
@@ -87,6 +88,11 @@ class TNetXNGFileStager: public TFileStager
     Bool_t IsValid() const { return ( fSystem ? kTRUE : kFALSE ); }
 
   private:
+    //--------------------------------------------------------------------------
+    //! Get a staging priority value from an option string
+    //--------------------------------------------------------------------------
+    UChar_t ParseStagePriority( Option_t *opt );
+
     //--------------------------------------------------------------------------
     //! Data members
     //--------------------------------------------------------------------------
