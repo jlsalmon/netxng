@@ -6,6 +6,17 @@
  * For the list of contributors see $ROOTSYS/README/CREDITS.                   *
  ******************************************************************************/
 
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+// TNetXNGFileStager                                                          //
+//                                                                            //
+// Authors: Lukasz Janyst, Justin Salmon                                      //
+//          CERN, 2013                                                        //
+//                                                                            //
+// Enables access to XRootD staging capabilities using the new client.        //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
 #include "TNetXNGFileStager.h"
 #include "TNetXNGSystem.h"
 #include "THashList.h"
@@ -30,6 +41,7 @@ TNetXNGFileStager::TNetXNGFileStager(const char *url) :
 TNetXNGFileStager::~TNetXNGFileStager()
 {
    // Destructor
+
    delete fSystem;
 }
 
@@ -107,6 +119,7 @@ Int_t TNetXNGFileStager::LocateCollection(TFileCollection *fc,
       // File staged
       else {
          info->SetBit(TFileInfo::kStaged);
+
          if (startUrl != endUrl) {
             info->AddUrl(endUrl.Data(), kTRUE);
          } else if (addDummyUrl) {
