@@ -6,24 +6,41 @@
 void FileStagerTest()
 {
   std::cout << "Beginning FileStagerTest" << std::endl;
+  TString server = "root://vagabond.cern.ch/";
 
-  TFileStager s = TFileStager::Open( "root://localhost" );
+  TFileStager *s  = TFileStager::Open( server );
 
   // IsStaged()
-  Bool_t isStaged = s.IsStaged( "root://localhost//tmp/Event.root" );
-  cout << (isStaged ? "true\n" : "false\n");
+  Bool_t isStaged = s->IsStaged( server + "/tmp/nonexisting.root" );
+  std::cout << "File is staged: " << ( isStaged ? "true" : "false" ) << std::endl;
+  Bool_t isStaged = s->IsStaged( server + "/tmp/Event.root" );
+  std::cout << "File is staged: " << ( isStaged ? "true" : "false" ) << std::endl;
 
   // Locate()
   TString endpoint = 0;
-  s.Locate( "root://localhost//tmp/Event.root", endpoint );
+  if( s->Locate( server + "/tmp/Event.root", endpoint ) != 0 )
+  {
+    std::cout << "Error locating file" << std::endl;
+  }
+  std::cout << "Endpoint: " << endpoint << std::endl;
 
   // LocateCollection()
 
   // Matches()
 
   // Stage() single
+  if( s->Stage( server + "/tmp/Event.root" ) != 0 )
+  {
+    std::cout << "Error staging single" << std::endl;
+  }
 
   // Stage() multiple
-
+  TList t = TList();
+  t.Add( (TObject*) TUrl( server + "/tmp/Event.root" ) );
+  t.Add( (TObject*) TUrl( server + "/tmp/atlasFlushed.root" ) );
+  if( s->Stage( (TCollection*) t, "priority=1" ) != 0 )
+  {
+    std::cout << "Error staging multiple" << std::endl;
+  }
 }
 

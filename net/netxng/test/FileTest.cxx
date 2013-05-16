@@ -3,10 +3,10 @@
 // Author: Justin Salmon <jsalmon@cern.ch>
 //------------------------------------------------------------------------------
 
-void FileTest()
+Int_t runFileTest()
 {
   std::cout << "Beginning FileTest" << std::endl;
-  gDebug = 3;
+  gDebug = 0;
 
   // Open()
   TFile *f = TFile::Open( "root://localhost//tmp/Event.root" );
@@ -68,6 +68,6 @@ void FileTest()
   {
     std::cout << "Error writing" << std::endl;
   }
-
-  f->Close();
+//
+//  f->Close();
 }
