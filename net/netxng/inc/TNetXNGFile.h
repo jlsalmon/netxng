@@ -30,7 +30,7 @@ class TNetXNGFile: public TFile
     //--------------------------------------------------------------------------
     //! Constructor
     //--------------------------------------------------------------------------
-    TNetXNGFile(): TFile(), fFile( 0 ), fMode( 0 ), fUrl( 0 ) {}
+    TNetXNGFile(): TFile(), fFile( 0 ), fUrl( 0 ), fMode( XrdCl::OpenFlags::None ) {}
 
     //--------------------------------------------------------------------------
     //! Constructor
@@ -55,7 +55,8 @@ class TNetXNGFile: public TFile
     virtual ~TNetXNGFile();
 
     //--------------------------------------------------------------------------
-    //! Get the file size
+    //! Get the file size. Returns -1 in the case that the file could not be
+    //! stat'ed.
     //--------------------------------------------------------------------------
     virtual Long64_t GetSize() const;
 
@@ -137,6 +138,14 @@ class TNetXNGFile: public TFile
     virtual void Seek( Long64_t offset, ERelativeTo position = kBeg );
 
     //--------------------------------------------------------------------------
+    //! ROOT class definition
+    //--------------------------------------------------------------------------
+    ClassDef( TNetXNGFile, 0 )
+
+  private:
+    virtual Bool_t IsUseable() const;
+
+    //--------------------------------------------------------------------------
     //! Parse an file open mode given as a string into an integer that the
     //! client can use
     //!
@@ -147,12 +156,6 @@ class TNetXNGFile: public TFile
     XrdCl::OpenFlags::Flags ParseOpenMode( Option_t *modestr );
 #endif
 
-    //--------------------------------------------------------------------------
-    //! ROOT class definition
-    //--------------------------------------------------------------------------
-    ClassDef( TNetXNGFile, 0 )
-
-  private:
     //--------------------------------------------------------------------------
     //! Data members
     //--------------------------------------------------------------------------

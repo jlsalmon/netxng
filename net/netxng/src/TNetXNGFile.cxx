@@ -63,14 +63,43 @@ XrdCl::OpenFlags::Flags TNetXNGFile::ParseOpenMode( Option_t *modestr )
   return mode;
 }
 
+Bool_t TNetXNGFile::IsUseable() const
+{
+  //----------------------------------------------------------------------------
+  // Check the file isn't a zombie
+  //----------------------------------------------------------------------------
+  if( IsZombie() )
+  {
+    Error( "TNetXNGFile", "Object is in 'zombie' state" );
+    return kFALSE;
+  }
+
+  //----------------------------------------------------------------------------
+  // Check the file is actually open
+  //----------------------------------------------------------------------------
+  if( !IsOpen() )
+  {
+    Error( "TNetXNGFile", "The remote file is not open" );
+    return kFALSE;
+  }
+
+  return kTRUE;
+}
+
 //------------------------------------------------------------------------------
 //! Get the file size
 //------------------------------------------------------------------------------
 Long64_t TNetXNGFile::GetSize() const
 {
   using namespace XrdCl;
-  StatInfo *info = 0;
 
+  //----------------------------------------------------------------------------
+  // Check the file isn't a zombie or closed
+  //----------------------------------------------------------------------------
+  if( !IsUseable() )
+    return -1;
+
+  StatInfo *info = 0;
   fFile->Stat( false, info );
   Long64_t size = info->GetSize();
   delete info;
@@ -151,23 +180,10 @@ Bool_t TNetXNGFile::ReadBuffer( char *buffer, Long64_t position, Int_t length )
     Info( "ReadBuffer", "offset: %lld length: %d", position, length );
 
   //----------------------------------------------------------------------------
-  // Check the file isn't a zombie
+  // Check the file isn't a zombie or closed
   //----------------------------------------------------------------------------
-  if( IsZombie() )
-  {
-    Error( "ReadBuffer", "ReadBuffer is not possible because object"
-                         " is in 'zombie' state" );
+  if( !IsUseable() )
     return kTRUE;
-  }
-
-  //----------------------------------------------------------------------------
-  // Check the file is actually open
-  //----------------------------------------------------------------------------
-  if( !IsOpen() )
-  {
-    Error( "ReadBuffer", "The remote file is not open" );
-    return kTRUE;
-  }
 
   //----------------------------------------------------------------------------
   // Read the data
@@ -206,23 +222,10 @@ Bool_t TNetXNGFile::ReadBuffers( char     *buffer,
   using namespace XrdCl;
 
   //----------------------------------------------------------------------------
-  // Check the file isn't a zombie
+  // Check the file isn't a zombie or closed
   //----------------------------------------------------------------------------
-  if( IsZombie() )
-  {
-    Error( "ReadBuffers", "ReadBuffers is not possible because object"
-                          " is in 'zombie' state" );
+  if( !IsUseable() )
     return kTRUE;
-  }
-
-  //----------------------------------------------------------------------------
-  // Check the file is actually open
-  //----------------------------------------------------------------------------
-  if( !IsOpen() )
-  {
-    Error( "ReadBuffers", "The remote file is not open" );
-    return kTRUE;
-  }
 
   //----------------------------------------------------------------------------
   // Find the max size for a single readv buffer
@@ -299,23 +302,10 @@ Bool_t TNetXNGFile::WriteBuffer( const char *buffer, Int_t length )
   using namespace XrdCl;
 
   //----------------------------------------------------------------------------
-  // Check the file isn't a zombie
+  // Check the file isn't a zombie or closed
   //----------------------------------------------------------------------------
-  if( IsZombie() )
-  {
-    Error( "WriteBuffer", "WriteBuffer is not possible because object"
-                          " is in 'zombie' state" );
+  if( !IsUseable() )
     return kTRUE;
-  }
-
-  //----------------------------------------------------------------------------
-  // Check the file is actually open
-  //----------------------------------------------------------------------------
-  if( !IsOpen() )
-  {
-    Error( "WriteBuffer", "The remote file is not open" );
-    return kTRUE;
-  }
 
   //----------------------------------------------------------------------------
   // Write the data
