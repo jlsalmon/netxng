@@ -82,7 +82,7 @@ Int_t TNetXNGFileStager::Locate(const char *path, TString &url)
 
 //______________________________________________________________________________
 Int_t TNetXNGFileStager::LocateCollection(TFileCollection *fc,
-      Bool_t addDummyUrl)
+                                          Bool_t addDummyUrl)
 {
    // Bulk locate request for a collection of files
    //
@@ -93,7 +93,7 @@ Int_t TNetXNGFileStager::LocateCollection(TFileCollection *fc,
    //                    otherwise
 
    if (!fc) {
-      Error("Locate", "No input collection given!");
+      Error("LocateCollection", "No input collection given");
       return -1;
    }
 
@@ -131,7 +131,6 @@ Int_t TNetXNGFileStager::LocateCollection(TFileCollection *fc,
             Info("LocateCollection", "Found: %s --> %s", startUrl.Data(),
                                       endUrl.Data());
       }
-
       numFiles++;
    }
 
