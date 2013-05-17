@@ -31,7 +31,7 @@ TNetXNGFile::TNetXNGFile(const char *url,
                          const char *title,
                          Int_t       compress,
                          Int_t       /*netopt*/,
-                         Bool_t      /*parallelopen*/) :
+                         Bool_t      parallelopen) :
    TFile(url, "NET", title, compress)
 {
    // Constructor
@@ -44,12 +44,33 @@ TNetXNGFile::TNetXNGFile(const char *url,
    // param parallelopen: open asynchronously (do we need this also?)
 
    using namespace XrdCl;
+
    fFile = new File();
    fUrl  = new URL(std::string(url));
    fUrl->SetProtocol(std::string("root"));
    fMode = ParseOpenMode(mode);
-   fFile->Open(fUrl->GetURL(), fMode);
-   TFile::Init(false);
+
+   XRootDStatus status;
+   if (!parallelopen) {
+
+      // Open the file synchronously
+      status = fFile->Open(fUrl->GetURL(), fMode);
+      if (!status.IsOK()) {
+         Error("Open", "%s", status.GetErrorMessage().c_str());
+         return;
+      } else
+         TFile::Init(false);
+
+   } else {
+
+      // Open the file asynchronously
+      TNetXNGAsyncOpenHandler *handler = new TNetXNGAsyncOpenHandler(this);
+      fInitCondVar = new XrdSysCondVar();
+      status = fFile->Open(fUrl->GetURL(), fMode, Access::None, handler);
+      if (!status.IsOK()) {
+         Error("Open", "%s", status.GetErrorMessage().c_str());
+      }
+   }
 }
 
 //______________________________________________________________________________
@@ -61,6 +82,25 @@ TNetXNGFile::~TNetXNGFile()
       Close();
    delete fFile;
    delete fUrl;
+}
+
+//______________________________________________________________________________
+void TNetXNGFile::Init(Bool_t create)
+{
+   // Initialize the file. Makes sure that the file is really open before
+   // calling TFile::Init. It may block.
+
+   if (fInitDone) {
+      if (gDebug > 1) Info("Init", "TFile::Init already called once");
+      return;
+   }
+
+   // If the async open didn't return yet, wait for it
+   if (!IsOpen()) {
+      fInitCondVar.Wait();
+   }
+
+   TFile::Init(create);
 }
 
 //______________________________________________________________________________
@@ -88,6 +128,16 @@ Bool_t TNetXNGFile::IsOpen() const
    // Check if the file is open
 
    return fFile->IsOpen();
+}
+
+//______________________________________________________________________________
+void TNetXNGFile::SetAsyncOpenStatus(EAsyncOpenStatus status)
+{
+   // Set the status of an asynchronous file open
+
+   fAsyncOpenStatus = status;
+   // Unblock Init() if it is waiting
+   fInitCondVar.Signal();
 }
 
 //______________________________________________________________________________
@@ -345,3 +395,23 @@ Bool_t TNetXNGFile::IsUseable() const
    return kTRUE;
 }
 
+//______________________________________________________________________________
+TNetXNGAsyncOpenHandler::TNetXNGAsyncOpenHandler(TNetXNGFile *file)
+{
+   fFile = file;
+   fFile->SetAsyncOpenStatus(TFile::kAOSInProgress);
+}
+
+//______________________________________________________________________________
+void TNetXNGAsyncOpenHandler::HandleResponse(XrdCl::XRootDStatus *status,
+                                             XrdCl::AnyObject    *response)
+{
+   // Called when a response to associated request arrives or an error occurs
+   delete response;
+   if (status->IsOK()) {
+      fFile->SetAsyncOpenStatus(TFile::kAOSSuccess);
+   } else {
+      fFile->SetAsyncOpenStatus(TFile::kAOSFailure);
+   }
+
+}

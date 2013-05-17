@@ -22,19 +22,24 @@
 
 #include "TFile.h"
 #ifndef __CINT__
+#include <XrdSys/XrdSysPthread.hh>
 #include <XrdCl/XrdClFileSystem.hh>
+#include <XrdCl/XrdClXRootDResponses.hh>
 #endif
 
 namespace XrdCl {
    class File;
+   class ResponseHandler;
 }
 
 class TNetXNGFile: public TFile {
 private:
 #ifndef __CINT__
-   XrdCl::File            *fFile; // Underlying XRootD file
-   XrdCl::URL             *fUrl;  // URL of the current file
-   XrdCl::OpenFlags::Flags fMode; // Open mode of the current file
+   XrdCl::File            *fFile;        // Underlying XRootD file
+   XrdCl::URL             *fUrl;         // URL of the current file
+   XrdCl::OpenFlags::Flags fMode;        // Open mode of the current file
+   XrdSysCondVar           fInitCondVar; // Used to block an async open request
+                                         // if requested
 #endif
 
 public:
@@ -44,9 +49,11 @@ public:
          Int_t compress = 1, Int_t netopt = 0, Bool_t parallelopen = kFALSE);
    virtual ~TNetXNGFile();
 
-   virtual Long64_t GetSize() const;
+   virtual void     Init(Bool_t create);
    virtual void     Close(const Option_t *option = "");
    virtual void     Seek(Long64_t offset, ERelativeTo position = kBeg);
+   virtual void     SetAsyncOpenStatus(EAsyncOpenStatus status);
+   virtual Long64_t GetSize() const;
    virtual Int_t    ReOpen(Option_t *modestr);
    virtual Bool_t   IsOpen() const;
    virtual Bool_t   WriteBuffer(const char *buffer, Int_t length);
@@ -65,6 +72,19 @@ private:
 
    TNetXNGFile(const TNetXNGFile &other);             // Not implemented
    TNetXNGFile &operator =(const TNetXNGFile &other); // Not implemented
+};
+
+class TNetXNGAsyncOpenHandler: public XrdCl::ResponseHandler {
+private:
+   TNetXNGFile *fFile;
+
+public:
+   TNetXNGAsyncOpenHandler(TNetXNGFile *file);
+
+#ifndef __CINT__
+   virtual void HandleResponse(XrdCl::XRootDStatus *status,
+                               XrdCl::AnyObject    *response);
+#endif
 };
 
 #endif // ROOT_TNetXNGFile
